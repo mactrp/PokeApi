@@ -1,0 +1,13 @@
+# Activated with SPRING_PROFILES_ACTIVE=prod (the Docker image does it by default).
+logging:
+  structured:
+    format:
+      console: ecs
+
+# The API documentation is off in production by default. To expose it (for example in a demo):
+#   docker run -e OPENAPI_ENABLED=true ...
+springdoc:
+  api-docs:
+    enabled: ${OPENAPI_ENABLED:false}
+  swagger-ui:
+    enabled: ${OPENAPI_ENABLED:false}
