@@ -11,6 +11,7 @@ import com.alea.pokemon.domain.FormsMode;
 @Component
 public class FormsModeConverter implements Converter<String, FormsMode> {
 
+    /** Trims and upper-cases the text before the lookup; an unknown value throws IllegalArgumentException. */
     @Override
     public FormsMode convert(String source) {
         return FormsMode.valueOf(source.trim().toUpperCase(Locale.ROOT));

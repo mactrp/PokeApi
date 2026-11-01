@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
+/** Spring configuration that builds the HTTP client used to call PokéAPI. */
 @Configuration(proxyBeanMethods = false)
 public class PokeApiConfig {
 
@@ -16,10 +17,12 @@ public class PokeApiConfig {
      */
     @Bean
     RestClient pokeApiRestClient(PokeApiProperties properties) {
+        // The connect timeout lives on the JDK client...
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(properties.connectTimeout())
                 .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        // ...while the per-request read timeout lives on the request factory.
         requestFactory.setReadTimeout(properties.readTimeout());
         return RestClient.builder()
                 .baseUrl(properties.baseUrl())

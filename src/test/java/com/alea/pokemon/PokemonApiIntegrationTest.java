@@ -28,8 +28,10 @@ class PokemonApiIntegrationTest {
     // Started when the class loads, i.e. before Spring builds the context that loads the catalogue.
     private static final StubPokeApi POKE_API = StubPokeApi.start();
 
+    // Shared client used to call the application under test.
     private static final HttpClient HTTP = HttpClient.newHttpClient();
 
+    /** Points the app at the stub and disables retries so failures show up immediately. */
     @DynamicPropertySource
     static void pokeApiProperties(DynamicPropertyRegistry registry) {
         registry.add("pokeapi.base-url", POKE_API::baseUrl);
@@ -37,23 +39,28 @@ class PokemonApiIntegrationTest {
         registry.add("pokeapi.initial-backoff", () -> "PT0S");
     }
 
+    /** Shuts the stub server down after all tests. */
     @AfterAll
     static void stopStub() {
         POKE_API.stop();
     }
 
+    // Random port assigned to the embedded server.
     @Value("${local.server.port}")
     private int port;
 
+    /** Sends a GET request to the running application. */
     private HttpResponse<String> get(String path) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path)).GET().build();
         return HTTP.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
+    /** Extracts the {@code name} of every ranked entry from the JSON body. */
     private static List<String> names(HttpResponse<String> response) {
         return JsonPath.read(response.body(), "$.results[*].name");
     }
 
+    /** Without {@code forms}, only default forms compete, ordered by weight. */
     @Test
     void heaviestUsesTheMainFormOfEachSpeciesByDefault() throws Exception {
         HttpResponse<String> response = get("/api/v1/pokemon/heaviest");
@@ -64,6 +71,7 @@ class PokemonApiIntegrationTest {
         assertThat(names(response)).containsExactly("golf", "foxtrot", "echo", "delta", "charlie");
     }
 
+    /** {@code forms=ALL} lets several forms of one species appear in the top 5. */
     @Test
     void heaviestWithAllFormsMayRepeatASpecies() throws Exception {
         HttpResponse<String> response = get("/api/v1/pokemon/heaviest?forms=ALL");
@@ -72,6 +80,7 @@ class PokemonApiIntegrationTest {
         assertThat(names(response)).containsExactly("bravo-gmax", "bravo-mega", "alpha-mega", "golf", "foxtrot");
     }
 
+    /** {@code best_per_species} (lower case) keeps one form per species. */
     @Test
     void highestWithBestPerSpeciesKeepsOneFormPerSpecies() throws Exception {
         HttpResponse<String> response = get("/api/v1/pokemon/highest?forms=best_per_species");
@@ -80,6 +89,7 @@ class PokemonApiIntegrationTest {
         assertThat(names(response)).containsExactly("bravo-gmax", "alpha-mega", "golf", "foxtrot", "echo");
     }
 
+    /** Entries with a null base experience never appear in that ranking. */
     @Test
     void mostExperiencedSkipsEntriesWithoutBaseExperience() throws Exception {
         HttpResponse<String> response = get("/api/v1/pokemon/most-experienced");
@@ -88,6 +98,7 @@ class PokemonApiIntegrationTest {
         assertThat(names(response)).containsExactly("foxtrot", "echo", "delta", "charlie", "bravo");
     }
 
+    /** The API reports metres and kilograms, not decimetres and hectograms. */
     @Test
     void responseCarriesConvertedUnits() throws Exception {
         HttpResponse<String> response = get("/api/v1/pokemon/heaviest");
@@ -96,6 +107,7 @@ class PokemonApiIntegrationTest {
         assertThat(JsonPath.<Double>read(response.body(), "$.results[0].heightMeters")).isEqualTo(7.0);
     }
 
+    /** An unknown {@code forms} value returns 400 and lists the allowed values. */
     @Test
     void invalidFormsValueIsRejected() throws Exception {
         HttpResponse<String> response = get("/api/v1/pokemon/heaviest?forms=everything");
@@ -104,12 +116,14 @@ class PokemonApiIntegrationTest {
         assertThat(JsonPath.<String>read(response.body(), "$.detail")).contains("Allowed values");
     }
 
+    /** Both Kubernetes health probes report UP once the data is loaded. */
     @Test
     void readinessAndLivenessProbesAreUp() throws Exception {
         assertThat(get("/actuator/health/readiness").statusCode()).isEqualTo(200);
         assertThat(get("/actuator/health/liveness").statusCode()).isEqualTo(200);
     }
 
+    /** The external API is hit only while loading the snapshot, never once per request. */
     @Test
     void thePokeApiIsQueriedOnceAtStartupAndNeverPerRequest() throws Exception {
         get("/api/v1/pokemon/heaviest");

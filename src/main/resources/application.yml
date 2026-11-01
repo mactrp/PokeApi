@@ -1,7 +1,9 @@
+# Application identity.
 spring:
   application:
     name: pokemon-rankings
 
+# Finish in-flight requests before shutting down.
 server:
   shutdown: graceful
 
@@ -10,16 +12,26 @@ server:
 # Durations use ISO-8601 so that the same value works for @ConfigurationProperties
 # and for @Scheduled.
 pokeapi:
+  # Root URL of PokéAPI.
   base-url: https://pokeapi.co/api/v2
+  # Page size of the single catalogue listing call; must cover every entry.
   list-limit: 2000
+  # Maximum simultaneous detail requests.
   concurrency: 16
+  # Attempts per request before the whole load fails.
   max-attempts: 3
+  # Pause before the second attempt; it doubles afterwards.
   initial-backoff: PT0.2S
+  # TCP connect timeout.
   connect-timeout: PT5S
+  # Response timeout per request.
   read-timeout: PT10S
+  # How often the snapshot is reloaded.
   refresh-interval: PT24H
+  # Load the catalogue at startup and refresh it on a schedule; false disables both.
   preload: true
 
+# Expose only health and info, and enable the Kubernetes liveness and readiness probes.
 management:
   endpoints:
     web:

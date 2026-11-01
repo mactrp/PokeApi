@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 /** JSON shapes of the PokéAPI responses. Only the fields the application needs are mapped. */
 public final class PokeApiPayloads {
 
+    /** Prevents instantiation: this class only groups nested records. */
     private PokeApiPayloads() {
     }
 
@@ -16,6 +17,7 @@ public final class PokeApiPayloads {
     public record ListResponse(int count, List<ListItem> results) {
     }
 
+    /** One catalogue entry: its name and the URL of its detail resource. */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record ListItem(String name, String url) {
     }
@@ -27,11 +29,13 @@ public final class PokeApiPayloads {
             String name,
             int height,
             int weight,
+            // JSON snake_case names are mapped explicitly; baseExperience is boxed because the API may send null.
             @JsonProperty("base_experience") Integer baseExperience,
             @JsonProperty("is_default") boolean isDefault,
             Species species) {
     }
 
+    /** Species an entry belongs to; only its name is needed. */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Species(String name) {
     }

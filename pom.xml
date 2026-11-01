@@ -4,6 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!-- Spring Boot parent: manages dependency and plugin versions. -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
@@ -17,6 +18,7 @@
     <name>pokemon-rankings</name>
     <description>Rankings of Pokémon (heaviest, highest, most base experience) built on top of PokéAPI</description>
 
+    <!-- Java version, library versions and the minimum coverage ratio. -->
     <properties>
         <java.version>25</java.version>
         <jacoco.version>0.8.14</jacoco.version>
@@ -26,25 +28,30 @@
     </properties>
 
     <dependencies>
+        <!-- REST controllers (Spring MVC). -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
+        <!-- Health probes and operational endpoints. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <!-- OpenAPI documentation and Swagger UI. -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!-- JUnit 5, AssertJ, Mockito and Spring test support. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- JSON assertions in tests. -->
         <dependency>
             <groupId>com.jayway.jsonpath</groupId>
             <artifactId>json-path</artifactId>
@@ -54,6 +61,7 @@
 
     <build>
         <plugins>
+            <!-- Builds the executable Spring Boot jar. -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -74,6 +82,7 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Runs the unit tests with the Mockito and JaCoCo agents attached. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -83,17 +92,20 @@
                 </configuration>
             </plugin>
 
+            <!-- Measures coverage and fails the build below the minimum ratio. -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>${jacoco.version}</version>
                 <executions>
+                    <!-- Attaches the coverage agent to the test JVM. -->
                     <execution>
                         <id>prepare-agent</id>
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
                     </execution>
+                    <!-- Generates the coverage report during the verify phase. -->
                     <execution>
                         <id>report</id>
                         <phase>verify</phase>
@@ -106,6 +118,7 @@
                             </excludes>
                         </configuration>
                     </execution>
+                    <!-- Enforces the minimum line, instruction and branch coverage. -->
                     <execution>
                         <id>check</id>
                         <phase>verify</phase>

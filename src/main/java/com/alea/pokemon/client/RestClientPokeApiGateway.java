@@ -14,9 +14,11 @@ import com.alea.pokemon.client.PokeApiPayloads.ListResponse;
 import com.alea.pokemon.config.PokeApiProperties;
 import com.alea.pokemon.domain.Pokemon;
 
+/** Calls PokéAPI with Spring's RestClient and maps the JSON payloads to domain objects. */
 @Component
 public class RestClientPokeApiGateway implements PokeApiGateway {
 
+    // Client errors that can disappear on retry, so they must not be treated as permanent.
     private static final int REQUEST_TIMEOUT = 408;
     private static final int TOO_MANY_REQUESTS = 429;
 
@@ -28,12 +30,14 @@ public class RestClientPokeApiGateway implements PokeApiGateway {
         this.properties = properties;
     }
 
+    /** Fetches the whole catalogue listing in one call and returns the detail URL of every entry. */
     @Override
     public List<String> listPokemonUrls() {
         ListResponse response = call(() -> restClient.get()
                 .uri("/pokemon?limit={limit}", properties.listLimit())
                 .retrieve()
                 .body(ListResponse.class));
+        // An empty body means PokéAPI answered with nothing usable.
         if (response == null || response.results() == null) {
             throw new PokeApiException("PokéAPI returned an empty catalogue listing");
         }
@@ -45,6 +49,7 @@ public class RestClientPokeApiGateway implements PokeApiGateway {
         return response.results().stream().map(ListItem::url).toList();
     }
 
+    /** Fetches one detail resource and maps it to a {@link Pokemon}. */
     @Override
     public Pokemon fetchPokemon(String url) {
         Detail detail = call(() -> restClient.get()
@@ -54,6 +59,7 @@ public class RestClientPokeApiGateway implements PokeApiGateway {
         if (detail == null || detail.species() == null) {
             throw new PokeApiException("Unexpected PokéAPI response for " + url);
         }
+        // Species name comes from the nested species object.
         return new Pokemon(
                 detail.id(),
                 detail.name(),
@@ -73,9 +79,11 @@ public class RestClientPokeApiGateway implements PokeApiGateway {
             return request.get();
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
+            // Rethrown as-is so the retry logic can try again.
             if (status == REQUEST_TIMEOUT || status == TOO_MANY_REQUESTS) {
                 throw e;
             }
+            // Any other 4xx will not change on retry, so fail fast.
             throw new PermanentPokeApiException("PokéAPI rejected the request with HTTP " + status, e);
         }
     }

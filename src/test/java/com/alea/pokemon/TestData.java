@@ -2,6 +2,7 @@ package com.alea.pokemon;
 
 import com.alea.pokemon.domain.Pokemon;
 
+/** Factory helpers that build {@link Pokemon} fixtures for tests. */
 public final class TestData {
 
     private TestData() {

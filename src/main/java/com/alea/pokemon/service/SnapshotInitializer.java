@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
  * If the load fails the application fails to start and the orchestrator restarts it.
  */
 @Component
+// Active unless pokeapi.preload is set to false.
 @ConditionalOnProperty(prefix = "pokeapi", name = "preload", havingValue = "true", matchIfMissing = true)
 public class SnapshotInitializer implements ApplicationRunner {
 
@@ -20,6 +21,7 @@ public class SnapshotInitializer implements ApplicationRunner {
         this.snapshots = snapshots;
     }
 
+    /** Loads the first snapshot; a failure here aborts startup. */
     @Override
     public void run(ApplicationArguments args) {
         snapshots.refresh();

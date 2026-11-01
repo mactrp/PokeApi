@@ -20,6 +20,7 @@ public class PokemonSnapshotService {
     private static final Logger log = LoggerFactory.getLogger(PokemonSnapshotService.class);
 
     private final PokemonLoader loader;
+    // Lock-free holder: readers see either the old or the new snapshot, never a partial one.
     private final AtomicReference<PokemonSnapshot> current = new AtomicReference<>();
 
     public PokemonSnapshotService(PokemonLoader loader) {
@@ -29,10 +30,12 @@ public class PokemonSnapshotService {
     /** Loads a fresh catalogue and publishes it. Throws if the load fails; nothing is published then. */
     public void refresh() {
         PokemonSnapshot snapshot = loader.load();
+        // Atomic swap, done only after the load succeeded.
         current.set(snapshot);
         log.info("Published snapshot with {} Pokémon", snapshot.pokemon().size());
     }
 
+    /** Returns the published snapshot, or throws {@link SnapshotNotReadyException} if none exists yet. */
     public PokemonSnapshot current() {
         PokemonSnapshot snapshot = current.get();
         if (snapshot == null) {

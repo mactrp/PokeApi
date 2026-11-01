@@ -1,4 +1,5 @@
 # Activated with SPRING_PROFILES_ACTIVE=prod (the Docker image does it by default).
+# Structured JSON logs in ECS format, ready for log aggregation.
 logging:
   structured:
     format:
@@ -7,7 +8,9 @@ logging:
 # The API documentation is off in production by default. To expose it (for example in a demo):
 #   docker run -e OPENAPI_ENABLED=true ...
 springdoc:
+  # OpenAPI JSON endpoint.
   api-docs:
     enabled: ${OPENAPI_ENABLED:false}
+  # Swagger UI page.
   swagger-ui:
     enabled: ${OPENAPI_ENABLED:false}

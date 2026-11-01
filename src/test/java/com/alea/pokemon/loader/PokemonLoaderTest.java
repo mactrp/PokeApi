@@ -19,6 +19,7 @@ import com.alea.pokemon.config.PokeApiProperties;
 import com.alea.pokemon.domain.Pokemon;
 import com.alea.pokemon.domain.PokemonSnapshot;
 
+/** Loader tests with a fake gateway; retries use zero backoff so they run instantly. */
 class PokemonLoaderTest {
 
     /** Gateway whose behaviour is supplied by lambdas. */
@@ -37,20 +38,24 @@ class PokemonLoaderTest {
         }
     }
 
+    /** Builds properties with 3 attempts and no backoff; only the concurrency varies. */
     private static PokeApiProperties properties(int concurrency) {
         return new PokeApiProperties("http://unused", 2000, concurrency, 3, Duration.ZERO,
                 Duration.ofSeconds(1), Duration.ofSeconds(1));
     }
 
+    /** Generates fake detail URLs u1..uN. */
     private static List<String> urls(int count) {
         return IntStream.rangeClosed(1, count).mapToObj(i -> "u" + i).toList();
     }
 
+    /** Creates an entry whose id is parsed from the URL. */
     private static Pokemon pokemonFor(String url) {
         int id = Integer.parseInt(url.substring(1));
         return pokemon(id, "p" + id, 1, id, 1);
     }
 
+    /** Every listed entry is loaded, in catalogue order. */
     @Test
     void loadsEveryPokemonFromTheCatalogue() {
         PokemonLoader loader = new PokemonLoader(new FakeGateway(() -> urls(5), PokemonLoaderTest::pokemonFor), properties(4));
@@ -61,6 +66,7 @@ class PokemonLoaderTest {
         assertThat(snapshot.loadedAt()).isNotNull();
     }
 
+    /** A request that fails twice still succeeds on its third attempt. */
     @Test
     void retriesTransientFailuresOfASingleRequest() {
         AtomicInteger attemptsForU2 = new AtomicInteger();
@@ -77,6 +83,7 @@ class PokemonLoaderTest {
         assertThat(attemptsForU2).hasValue(3);
     }
 
+    /** A request that never succeeds fails the whole load, so no partial snapshot is built. */
     @Test
     void failsTheWholeLoadWhenOneRequestKeepsFailing() {
         FakeGateway gateway = new FakeGateway(() -> urls(5), url -> {
@@ -91,6 +98,7 @@ class PokemonLoaderTest {
                 .hasMessageContaining("every Pokémon");
     }
 
+    /** A permanent failure is attempted exactly once. */
     @Test
     void doesNotSpendRetriesOnAPermanentFailure() {
         AtomicInteger attemptsForU2 = new AtomicInteger();
@@ -109,6 +117,7 @@ class PokemonLoaderTest {
         assertThat(attemptsForU2).hasValue(1);
     }
 
+    /** The listing call also fails fast on a permanent error. */
     @Test
     void doesNotRetryAPermanentFailureWhileListingEither() {
         AtomicInteger listAttempts = new AtomicInteger();
@@ -124,6 +133,7 @@ class PokemonLoaderTest {
         assertThat(listAttempts).hasValue(1);
     }
 
+    /** If listing keeps failing, the load fails. */
     @Test
     void failsWhenTheCatalogueCannotBeListed() {
         FakeGateway gateway = new FakeGateway(() -> {
@@ -134,6 +144,7 @@ class PokemonLoaderTest {
                 .isInstanceOf(SnapshotLoadException.class);
     }
 
+    /** The semaphore caps in-flight requests at the configured limit. */
     @Test
     void neverExceedsTheConfiguredConcurrency() {
         AtomicInteger inFlight = new AtomicInteger();
@@ -157,6 +168,7 @@ class PokemonLoaderTest {
         assertThat(maxInFlight.get()).isBetween(2, 3);
     }
 
+    /** An interrupted caller gets an exception and keeps its interrupt flag set. */
     @Test
     void restoresTheInterruptFlagWhenInterruptedWhileWaiting() {
         // Detail requests block until they are interrupted, so the pending futures cannot complete
@@ -178,6 +190,7 @@ class PokemonLoaderTest {
                     .hasMessageContaining("Interrupted");
             assertThat(Thread.currentThread().isInterrupted()).isTrue();
         } finally {
+            // Clear the flag so other tests are not affected.
             Thread.interrupted();
         }
     }

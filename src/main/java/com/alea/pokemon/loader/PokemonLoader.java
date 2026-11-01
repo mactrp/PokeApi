@@ -40,11 +40,14 @@ public class PokemonLoader {
         this.properties = properties;
     }
 
+    /** Downloads the full catalogue and returns it as an immutable snapshot; fails if any request fails. */
     public PokemonSnapshot load() {
         Instant start = Instant.now();
+        // Step 1: list every detail URL (retried on transient failures).
         List<String> urls = Retry.execute(properties.maxAttempts(), properties.initialBackoff(), PokemonLoader::isTransient, gateway::listPokemonUrls);
         log.info("Loading {} Pokémon from PokéAPI (concurrency {})", urls.size(), properties.concurrency());
 
+        // Step 2: fetch every detail on virtual threads, capped by a semaphore.
         Semaphore permits = new Semaphore(properties.concurrency());
         List<Pokemon> loaded = new ArrayList<>(urls.size());
         ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
@@ -53,14 +56,17 @@ public class PokemonLoader {
             for (String url : urls) {
                 futures.add(executor.submit(() -> fetchLimited(url, permits)));
             }
+            // Wait in submission order so results keep the catalogue order.
             for (Future<Pokemon> future : futures) {
                 loaded.add(future.get());
             }
         } catch (ExecutionException e) {
+            // One request failed for good: cancel the rest and fail the whole load.
             executor.shutdownNow();
             throw new SnapshotLoadException("Could not load every Pokémon", e.getCause());
         } catch (InterruptedException e) {
             executor.shutdownNow();
+            // Preserve the interrupt status for the caller.
             Thread.currentThread().interrupt();
             throw new SnapshotLoadException("Interrupted while loading Pokémon", e);
         } finally {
@@ -72,6 +78,7 @@ public class PokemonLoader {
         return new PokemonSnapshot(loaded, end);
     }
 
+    /** Fetches one entry while holding a permit, so at most {@code concurrency} requests run at once. */
     private Pokemon fetchLimited(String url, Semaphore permits) throws InterruptedException {
         permits.acquire();
         try {

@@ -25,13 +25,16 @@ import org.springframework.web.client.RestClientException;
 import com.alea.pokemon.config.PokeApiProperties;
 import com.alea.pokemon.domain.Pokemon;
 
+/** Gateway tests against a mocked REST server; no network is used. */
 class RestClientPokeApiGatewayTest {
 
+    // Fake host: requests never leave the JVM.
     private static final String BASE = "http://pokeapi.test/api/v2";
 
     private MockRestServiceServer server;
     private RestClientPokeApiGateway gateway;
 
+    /** Binds a mock server to the client builder and creates the gateway under test. */
     @BeforeEach
     void setUp() {
         RestClient.Builder builder = RestClient.builder().baseUrl(BASE);
@@ -41,6 +44,7 @@ class RestClientPokeApiGatewayTest {
         gateway = new RestClientPokeApiGateway(builder.build(), properties);
     }
 
+    /** The listing call returns one detail URL per entry. */
     @Test
     void listsTheDetailUrlOfEveryEntry() {
         server.expect(requestTo(BASE + "/pokemon?limit=2000"))
@@ -59,6 +63,7 @@ class RestClientPokeApiGatewayTest {
         server.verify();
     }
 
+    /** Fewer results than the reported count means the limit is too small, so it fails. */
     @Test
     void rejectsAnIncompleteListing() {
         server.expect(requestTo(BASE + "/pokemon?limit=2000"))
@@ -71,6 +76,7 @@ class RestClientPokeApiGatewayTest {
                 .hasMessageContaining("Incomplete catalogue");
     }
 
+    /** An empty body for the listing is rejected. */
     @Test
     void rejectsAnEmptyListingResponse() {
         server.expect(requestTo(BASE + "/pokemon?limit=2000")).andRespond(withNoContent());
@@ -78,6 +84,7 @@ class RestClientPokeApiGatewayTest {
         assertThatThrownBy(gateway::listPokemonUrls).isInstanceOf(PokeApiException.class);
     }
 
+    /** Extra JSON fields are ignored and the known ones map to a Pokemon. */
     @Test
     void mapsTheDetailResponseIgnoringUnknownFields() {
         server.expect(requestTo("http://pokeapi.test/api/v2/pokemon/6/"))
@@ -92,6 +99,7 @@ class RestClientPokeApiGatewayTest {
         assertThat(pokemon).isEqualTo(new Pokemon(6, "charizard", "charizard", 17, 905, 267, true));
     }
 
+    /** A null base experience stays null and the species is kept for alternative forms. */
     @Test
     void mapsAMissingBaseExperienceToNullAndKeepsTheSpecies() {
         server.expect(requestTo("http://pokeapi.test/api/v2/pokemon/10195/"))
@@ -107,6 +115,7 @@ class RestClientPokeApiGatewayTest {
         assertThat(pokemon.species()).isEqualTo("eternatus");
     }
 
+    /** A detail response without a species is unusable and rejected. */
     @Test
     void rejectsADetailWithoutSpecies() {
         server.expect(requestTo("http://pokeapi.test/api/v2/pokemon/1/"))
@@ -119,6 +128,7 @@ class RestClientPokeApiGatewayTest {
                 .hasMessageContaining("Unexpected PokéAPI response");
     }
 
+    /** 5xx errors propagate unchanged so the loader can retry them. */
     @Test
     void propagatesServerErrors() {
         server.expect(requestTo("http://pokeapi.test/api/v2/pokemon/1/")).andRespond(withServerError());
@@ -127,6 +137,7 @@ class RestClientPokeApiGatewayTest {
                 .isInstanceOf(RestClientException.class);
     }
 
+    /** A listing without a results array is rejected. */
     @Test
     void rejectsAListingWithoutResults() {
         server.expect(requestTo(BASE + "/pokemon?limit=2000"))
@@ -137,6 +148,7 @@ class RestClientPokeApiGatewayTest {
                 .hasMessageContaining("empty catalogue");
     }
 
+    /** An empty detail body is rejected. */
     @Test
     void rejectsAnEmptyDetailResponse() {
         server.expect(requestTo("http://pokeapi.test/api/v2/pokemon/1/")).andRespond(withNoContent());
@@ -146,6 +158,7 @@ class RestClientPokeApiGatewayTest {
                 .hasMessageContaining("Unexpected PokéAPI response");
     }
 
+    /** A 404 is wrapped as a permanent failure, so it is not retried. */
     @Test
     void flagsAMissingDetailAsPermanent() {
         server.expect(requestTo("http://pokeapi.test/api/v2/pokemon/99999/")).andRespond(withStatus(HttpStatus.NOT_FOUND));
@@ -156,6 +169,7 @@ class RestClientPokeApiGatewayTest {
                 .hasCauseInstanceOf(HttpClientErrorException.class);
     }
 
+    /** A 4xx while listing is also permanent. */
     @Test
     void flagsAClientErrorWhileListingAsPermanent() {
         server.expect(requestTo(BASE + "/pokemon?limit=2000")).andRespond(withStatus(HttpStatus.BAD_REQUEST));
@@ -165,6 +179,7 @@ class RestClientPokeApiGatewayTest {
                 .hasMessageContaining("HTTP 400");
     }
 
+    /** HTTP 429 is left as a retryable error. */
     @Test
     void rateLimitingStaysRetryable() {
         server.expect(requestTo("http://pokeapi.test/api/v2/pokemon/1/")).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
@@ -174,6 +189,7 @@ class RestClientPokeApiGatewayTest {
                 .isNotInstanceOf(PermanentPokeApiException.class);
     }
 
+    /** HTTP 408 is left as a retryable error. */
     @Test
     void requestTimeoutStaysRetryable() {
         server.expect(requestTo("http://pokeapi.test/api/v2/pokemon/1/")).andRespond(withStatus(HttpStatus.REQUEST_TIMEOUT));

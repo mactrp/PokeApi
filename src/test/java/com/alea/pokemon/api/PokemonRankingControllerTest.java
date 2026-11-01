@@ -23,11 +23,13 @@ import com.alea.pokemon.domain.Metric;
 import com.alea.pokemon.service.RankingService;
 import com.alea.pokemon.service.SnapshotNotReadyException;
 
+/** Web-layer tests: the controller runs in standalone MockMvc with a mocked {@link RankingService}. */
 class PokemonRankingControllerTest {
 
     private final RankingService rankingService = mock(RankingService.class);
     private MockMvc mockMvc;
 
+    /** Registers the custom converter and the error handler, as the real application does. */
     @BeforeEach
     void setUp() {
         FormattingConversionService conversionService = new DefaultFormattingConversionService();
@@ -38,6 +40,7 @@ class PokemonRankingControllerTest {
                 .build();
     }
 
+    /** A default request maps domain values to the JSON response, converting units. */
     @Test
     void heaviestDefaultsToTheMainFormOfEachSpecies() throws Exception {
         when(rankingService.top(Metric.WEIGHT, FormsMode.DEFAULT_ONLY))
@@ -57,6 +60,7 @@ class PokemonRankingControllerTest {
                 .andExpect(jsonPath("$.results[0].baseExperience").value(267));
     }
 
+    /** A lower-case {@code forms=all} is accepted and a missing base experience is not reported. */
     @Test
     void highestHonoursTheFormsParameterCaseInsensitively() throws Exception {
         when(rankingService.top(Metric.HEIGHT, FormsMode.ALL))
@@ -72,6 +76,7 @@ class PokemonRankingControllerTest {
                 .andExpect(jsonPath("$.results[0].baseExperience").doesNotExist());
     }
 
+    /** {@code BEST_PER_SPECIES} is forwarded to the service and an empty result is valid. */
     @Test
     void mostExperiencedAcceptsBestPerSpecies() throws Exception {
         when(rankingService.top(Metric.BASE_EXPERIENCE, FormsMode.BEST_PER_SPECIES)).thenReturn(List.of());
@@ -85,6 +90,7 @@ class PokemonRankingControllerTest {
         verify(rankingService).top(Metric.BASE_EXPERIENCE, FormsMode.BEST_PER_SPECIES);
     }
 
+    /** A bad {@code forms} value returns a 400 problem detail. */
     @Test
     void invalidFormsValueIsABadRequestListingTheAllowedValues() throws Exception {
         mockMvc.perform(get("/api/v1/pokemon/heaviest").param("forms", "everything"))
@@ -95,6 +101,7 @@ class PokemonRankingControllerTest {
                         "Invalid value 'everything' for parameter 'forms'. Allowed values: [DEFAULT_ONLY, ALL, BEST_PER_SPECIES]"));
     }
 
+    /** {@code SnapshotNotReadyException} becomes a 503 problem detail. */
     @Test
     void answers503WhileTheCatalogueIsNotLoaded() throws Exception {
         when(rankingService.top(Metric.WEIGHT, FormsMode.DEFAULT_ONLY)).thenThrow(new SnapshotNotReadyException());

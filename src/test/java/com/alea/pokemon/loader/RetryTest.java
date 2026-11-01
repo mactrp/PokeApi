@@ -9,10 +9,13 @@ import java.util.function.Predicate;
 
 import org.junit.jupiter.api.Test;
 
+/** Unit tests for the retry helper; all use zero backoff so they run instantly. */
 class RetryTest {
 
+    // Treats every failure as retryable.
     private static final Predicate<RuntimeException> ALWAYS = failure -> true;
 
+    /** A successful first call returns immediately, without retrying. */
     @Test
     void returnsTheResultOfTheFirstSuccessfulAttempt() {
         AtomicInteger calls = new AtomicInteger();
@@ -26,6 +29,7 @@ class RetryTest {
         assertThat(calls).hasValue(1);
     }
 
+    /** Failures are retried until the action succeeds. */
     @Test
     void retriesUntilTheActionSucceeds() {
         AtomicInteger calls = new AtomicInteger();
@@ -41,6 +45,7 @@ class RetryTest {
         assertThat(calls).hasValue(3);
     }
 
+    /** After the maximum attempts it throws, with the last failure as the cause. */
     @Test
     void givesUpAfterTheMaximumNumberOfAttemptsKeepingTheLastCause() {
         AtomicInteger calls = new AtomicInteger();
@@ -57,6 +62,7 @@ class RetryTest {
         assertThat(calls).hasValue(3);
     }
 
+    /** A failure the predicate rejects is thrown at once, without retries. */
     @Test
     void doesNotRetryAFailureTheClassifierRejects() {
         AtomicInteger calls = new AtomicInteger();
@@ -73,6 +79,7 @@ class RetryTest {
         assertThat(calls).hasValue(1);
     }
 
+    /** Failures the predicate accepts are still retried. */
     @Test
     void stillRetriesFailuresTheClassifierAccepts() {
         AtomicInteger calls = new AtomicInteger();
@@ -88,11 +95,13 @@ class RetryTest {
         assertThat(calls).hasValue(2);
     }
 
+    /** Zero configured attempts still runs the action once. */
     @Test
     void alwaysTriesAtLeastOnce() {
         assertThat(Retry.execute(0, Duration.ZERO, ALWAYS, () -> "ok")).isEqualTo("ok");
     }
 
+    /** An interrupt during the backoff pause aborts the retries and preserves the flag. */
     @Test
     void stopsAndRestoresTheInterruptFlagWhenInterruptedDuringBackoff() {
         Thread.currentThread().interrupt();
@@ -104,6 +113,7 @@ class RetryTest {
                     .hasMessageContaining("Interrupted");
             assertThat(Thread.currentThread().isInterrupted()).isTrue();
         } finally {
+            // Clear the flag so other tests are not affected.
             Thread.interrupted();
         }
     }

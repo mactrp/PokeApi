@@ -17,19 +17,23 @@ import com.alea.pokemon.domain.Metric;
 import com.alea.pokemon.domain.Pokemon;
 import com.alea.pokemon.domain.PokemonSnapshot;
 
+/** Ranking logic tests over small in-memory catalogues. */
 class RankingServiceTest {
 
     private final PokemonSnapshotService snapshots = mock(PokemonSnapshotService.class);
     private final RankingService ranking = new RankingService(snapshots);
 
+    /** Makes the mocked snapshot service return the given entries. */
     private void givenCatalogue(Pokemon... pokemon) {
         when(snapshots.current()).thenReturn(new PokemonSnapshot(List.of(pokemon), Instant.now()));
     }
 
+    /** Extracts entry names for readable assertions. */
     private static List<String> names(List<Pokemon> pokemon) {
         return pokemon.stream().map(Pokemon::name).toList();
     }
 
+    /** DEFAULT_ONLY excludes alternative forms even when they are heavier. */
     @Test
     void defaultOnlyIgnoresAlternativeForms() {
         givenCatalogue(
@@ -40,6 +44,7 @@ class RankingServiceTest {
         assertThat(names(ranking.top(Metric.WEIGHT, FormsMode.DEFAULT_ONLY))).containsExactly("b", "a");
     }
 
+    /** ALL ranks every entry, including several forms of one species. */
     @Test
     void allKeepsEveryFormEvenWhenTheyBelongToTheSameSpecies() {
         givenCatalogue(
@@ -52,6 +57,7 @@ class RankingServiceTest {
                 .containsExactly("a-mega", "a-gmax", "b", "a");
     }
 
+    /** BEST_PER_SPECIES keeps one entry per species: its best form. */
     @Test
     void bestPerSpeciesKeepsOnlyTheBestFormOfEachSpecies() {
         givenCatalogue(
@@ -64,6 +70,7 @@ class RankingServiceTest {
                 .containsExactly("a-mega", "b");
     }
 
+    /** Deduplication happens before the top-5 cut, so one species cannot fill the list. */
     @Test
     void bestPerSpeciesDeduplicatesBeforeCuttingToFive() {
         givenCatalogue(
@@ -80,6 +87,7 @@ class RankingServiceTest {
                 .containsExactly("a-1", "b", "c");
     }
 
+    /** Only the top 5 are returned. */
     @Test
     void returnsAtMostFiveEntries() {
         givenCatalogue(
@@ -95,6 +103,7 @@ class RankingServiceTest {
                 .containsExactly("p7", "p6", "p5", "p4", "p3");
     }
 
+    /** Equal values are ordered by ascending id. */
     @Test
     void tiesAreBrokenByLowestId() {
         givenCatalogue(
@@ -106,6 +115,7 @@ class RankingServiceTest {
                 .containsExactly("three", "five", "nine");
     }
 
+    /** Within a species, a tie keeps the lowest id. */
     @Test
     void bestPerSpeciesBreaksTiesInsideASpeciesByLowestId() {
         givenCatalogue(
@@ -115,6 +125,7 @@ class RankingServiceTest {
         assertThat(names(ranking.top(Metric.WEIGHT, FormsMode.BEST_PER_SPECIES))).containsExactly("a");
     }
 
+    /** A missing base experience excludes an entry only from that ranking. */
     @Test
     void entriesWithoutBaseExperienceAreExcludedFromThatRanking() {
         givenCatalogue(
@@ -125,6 +136,7 @@ class RankingServiceTest {
         assertThat(names(ranking.top(Metric.HEIGHT, FormsMode.DEFAULT_ONLY))).containsExactly("has-value", "no-value");
     }
 
+    /** The height metric sorts by height, not by weight. */
     @Test
     void heightMetricRanksByHeight() {
         givenCatalogue(
@@ -134,6 +146,7 @@ class RankingServiceTest {
         assertThat(names(ranking.top(Metric.HEIGHT, FormsMode.DEFAULT_ONLY))).containsExactly("tall", "short");
     }
 
+    /** An empty catalogue gives an empty ranking. */
     @Test
     void emptyCatalogueYieldsEmptyRanking() {
         givenCatalogue();
@@ -141,6 +154,7 @@ class RankingServiceTest {
         assertThat(ranking.top(Metric.WEIGHT, FormsMode.ALL)).isEmpty();
     }
 
+    /** The not-ready error propagates from the snapshot service. */
     @Test
     void failsWhileTheCatalogueIsNotLoaded() {
         when(snapshots.current()).thenThrow(new SnapshotNotReadyException());

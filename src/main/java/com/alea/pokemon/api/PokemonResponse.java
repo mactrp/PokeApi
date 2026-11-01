@@ -15,6 +15,7 @@ public record PokemonResponse(
         double weightKilograms,
         Integer baseExperience) {
 
+    /** Maps a domain entry to the API shape, converting decimetres to metres and hectograms to kilograms. */
     static PokemonResponse from(Pokemon pokemon) {
         return new PokemonResponse(
                 pokemon.id(),

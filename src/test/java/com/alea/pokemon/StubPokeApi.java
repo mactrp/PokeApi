@@ -33,9 +33,11 @@ import com.sun.net.httpserver.HttpServer;
  */
 final class StubPokeApi {
 
+    /** One fake catalogue entry, in PokéAPI's raw units. */
     record Entry(int id, String name, String species, int height, int weight, Integer baseExperience, boolean isDefault) {
     }
 
+    // Fixed dataset that matches the table above.
     static final List<Entry> CATALOGUE = List.of(
             new Entry(1, "alpha", "alpha", 10, 100, 50, true),
             new Entry(2, "bravo", "bravo", 20, 200, 60, true),
@@ -50,6 +52,7 @@ final class StubPokeApi {
 
     private final HttpServer server;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    // Request counters let tests assert how often the stub was called.
     private final AtomicInteger listRequests = new AtomicInteger();
     private final AtomicInteger detailRequests = new AtomicInteger();
 
@@ -57,6 +60,7 @@ final class StubPokeApi {
         this.server = server;
     }
 
+    /** Starts the stub on a random free port. */
     static StubPokeApi start() {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
@@ -70,23 +74,28 @@ final class StubPokeApi {
         }
     }
 
+    /** Base URL to use as {@code pokeapi.base-url}. */
     String baseUrl() {
         return "http://localhost:" + server.getAddress().getPort() + "/api/v2";
     }
 
+    /** Number of catalogue listing calls received. */
     int listRequests() {
         return listRequests.get();
     }
 
+    /** Number of detail calls received. */
     int detailRequests() {
         return detailRequests.get();
     }
 
+    /** Stops the server and its executor. */
     void stop() {
         server.stop(0);
         executor.close();
     }
 
+    /** Routes the listing and detail endpoints; an unknown id answers 404. */
     private void handle(HttpExchange exchange) throws IOException {
         String path = exchange.getRequestURI().getPath();
         if (path.equals("/api/v2/pokemon")) {
@@ -94,7 +103,9 @@ final class StubPokeApi {
             respond(exchange, 200, listJson());
             return;
         }
+        // Anything else is treated as /pokemon/{id}.
         detailRequests.incrementAndGet();
+        // Extract the id from the path, ignoring a trailing slash.
         String id = path.substring("/api/v2/pokemon/".length()).replace("/", "");
         CATALOGUE.stream()
                 .filter(entry -> String.valueOf(entry.id()).equals(id))
@@ -104,6 +115,7 @@ final class StubPokeApi {
                         () -> send(exchange, 404, "{\"detail\":\"Not found.\"}"));
     }
 
+    /** Builds the listing JSON, with detail URLs that point back at the stub. */
     private String listJson() {
         String results = CATALOGUE.stream()
                 .map(entry -> "{\"name\":\"%s\",\"url\":\"%s/pokemon/%d/\"}".formatted(entry.name(), baseUrl(), entry.id()))
@@ -111,6 +123,7 @@ final class StubPokeApi {
         return "{\"count\":%d,\"next\":null,\"previous\":null,\"results\":[%s]}".formatted(CATALOGUE.size(), results);
     }
 
+    /** Builds the detail JSON of one entry, writing a missing base experience as null. */
     private static String detailJson(Entry entry) {
         return ("{\"id\":%d,\"name\":\"%s\",\"height\":%d,\"weight\":%d,\"base_experience\":%s,"
                 + "\"is_default\":%s,\"species\":{\"name\":\"%s\"}}")
@@ -119,6 +132,7 @@ final class StubPokeApi {
                         entry.isDefault(), entry.species());
     }
 
+    /** Like {@code respond} but wraps the IOException so it can be used inside lambdas. */
     private static void send(HttpExchange exchange, int status, String body) {
         try {
             respond(exchange, status, body);
@@ -127,6 +141,7 @@ final class StubPokeApi {
         }
     }
 
+    /** Writes a JSON response with the given status. */
     private static void respond(HttpExchange exchange, int status, String body) throws IOException {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().add("Content-Type", "application/json");

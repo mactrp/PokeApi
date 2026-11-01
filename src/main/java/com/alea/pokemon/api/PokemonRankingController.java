@@ -14,11 +14,13 @@ import com.alea.pokemon.service.RankingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+/** REST endpoints that expose the top-5 rankings under {@code /api/v1/pokemon}. */
 @RestController
 @RequestMapping("/api/v1/pokemon")
 @Tag(name = "Pokémon rankings")
 public class PokemonRankingController {
 
+    // Shared OpenAPI text that documents the forms query parameter.
     private static final String FORMS_DESCRIPTION =
             "forms: DEFAULT_ONLY (default) = main form of each species; ALL = every PokéAPI entry; "
                     + "BEST_PER_SPECIES = best form of each species";
@@ -29,6 +31,7 @@ public class PokemonRankingController {
         this.rankingService = rankingService;
     }
 
+    /** Top 5 by weight. */
     @GetMapping("/heaviest")
     @Operation(summary = "The 5 heaviest Pokémon", description = FORMS_DESCRIPTION)
     public RankingResponse heaviest(
@@ -36,6 +39,7 @@ public class PokemonRankingController {
         return ranking(Metric.WEIGHT, forms);
     }
 
+    /** Top 5 by height. */
     @GetMapping("/highest")
     @Operation(summary = "The 5 highest Pokémon", description = FORMS_DESCRIPTION)
     public RankingResponse highest(
@@ -43,6 +47,7 @@ public class PokemonRankingController {
         return ranking(Metric.HEIGHT, forms);
     }
 
+    /** Top 5 by base experience. */
     @GetMapping("/most-experienced")
     @Operation(summary = "The 5 Pokémon with the most base experience", description = FORMS_DESCRIPTION)
     public RankingResponse mostExperienced(
@@ -50,6 +55,7 @@ public class PokemonRankingController {
         return ranking(Metric.BASE_EXPERIENCE, forms);
     }
 
+    /** Computes the ranking and maps domain entries to the public response. */
     private RankingResponse ranking(Metric metric, FormsMode forms) {
         List<PokemonResponse> results = rankingService.top(metric, forms).stream()
                 .map(PokemonResponse::from)
